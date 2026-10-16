@@ -1,0 +1,1015 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>EcoConnect 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Mitr:wght@400;500;600&family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: full-bleed 3D diorama; glass panels float over it (species list left, inspector right, time + status bottom). */
+:root {
+  --ink: #07141b;
+  --glass: rgba(10, 26, 35, 0.66);
+  --glass-hi: rgba(18, 42, 54, 0.82);
+  --line: rgba(190, 255, 235, 0.14);
+  --text: #e9f6f2;
+  --mute: #8fb2b6;
+  --mint: #5cf2c0;
+  --lotus: #ff7eb6;
+  --sun: #ffd166;
+  --alert: #ff5d6c;
+  --sky: #6cc8ff;
+  --f-display: 'Mitr', 'Prompt', sans-serif;
+  --f-body: 'Prompt', system-ui, sans-serif;
+  --f-data: 'Chakra Petch', 'Prompt', monospace;
+  --gx: max(16px, env(safe-area-inset-left, 0px));
+  --gx2: max(16px, env(safe-area-inset-right, 0px));
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; position: relative; overflow: hidden; background: var(--ink); color: var(--text);
+  font-family: var(--f-body); font-size: 14px; user-select: none; -webkit-user-select: none;
+}
+#stage { position: absolute; inset: 0; }
+#stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+button, select, input { font-family: inherit; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
+
+.glass {
+  background: var(--glass); border: 1px solid var(--line); border-radius: 18px;
+  backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* top bar */
+#top {
+  position: absolute; top: 10px; left: var(--gx); right: var(--gx2); z-index: 20;
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
+}
+.brand { display: flex; align-items: center; gap: 12px; padding: 8px 16px 8px 10px; }
+.brand .mark {
+  width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; font-size: 20px;
+  background: radial-gradient(circle at 30% 25%, #9bffe0, #1fb98a 60%, #0b5d52);
+  box-shadow: 0 0 22px rgba(92, 242, 192, 0.45);
+}
+.brand h1 { margin: 0; font: 500 19px/1.1 var(--f-display); letter-spacing: 0.02em; }
+.brand h1 b { color: var(--mint); font-weight: 500; }
+.brand small { display: block; color: var(--mute); font-size: 11px; margin-top: 2px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px; }
+.biomes { display: flex; gap: 4px; padding: 4px; background: rgba(255, 255, 255, 0.05); border-radius: 12px; }
+.biome-btn {
+  border: 0; background: transparent; color: var(--mute); padding: 7px 11px; border-radius: 9px; cursor: pointer;
+  font-size: 12.5px; white-space: nowrap; transition: background 0.2s, color 0.2s;
+}
+.biome-btn:hover { color: var(--text); }
+.biome-btn.on { background: var(--mint); color: #06241c; font-weight: 600; }
+.tbtn {
+  border: 1px solid var(--line); background: rgba(255, 255, 255, 0.06); color: var(--text); border-radius: 11px;
+  padding: 8px 12px; cursor: pointer; font-size: 12.5px; transition: transform 0.15s, background 0.2s, border-color 0.2s;
+  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.tbtn:hover { background: rgba(255, 255, 255, 0.13); transform: translateY(-1px); }
+.tbtn.alien.on { background: rgba(255, 93, 108, 0.22); border-color: var(--alert); color: #ffd3d8; box-shadow: 0 0 18px rgba(255, 93, 108, 0.35); }
+.tbtn.go { background: var(--mint); color: #06241c; border-color: transparent; font-weight: 600; }
+.tbtn.go:hover { background: #8dffd8; }
+.tbtn.auto.on { background: var(--sun); color: #3a2a00; border-color: transparent; font-weight: 600; }
+
+/* species dock */
+#dock {
+  position: absolute; left: var(--gx); top: 86px; bottom: 74px; width: 232px; z-index: 15;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+#dock header { padding: 12px 14px 8px; font: 600 11px var(--f-data); letter-spacing: 0.14em; color: var(--mute); text-transform: uppercase; }
+#organism-list { flex: 1; overflow-y: auto; padding: 4px 10px 12px; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+#organism-list::-webkit-scrollbar { width: 6px; }
+#organism-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 6px; }
+.org {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; cursor: pointer; text-align: left; width: 100%;
+  background: rgba(255, 255, 255, 0.04); border: 1px solid transparent; color: var(--text); transition: all 0.18s;
+}
+.org:hover { background: rgba(92, 242, 192, 0.12); border-color: rgba(92, 242, 192, 0.4); transform: translateX(3px); }
+.org .em { font-size: 24px; width: 32px; text-align: center; filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4)); }
+.org .nm { flex: 1; font-size: 13px; line-height: 1.2; min-width: 0; }
+.org .tg { font: 600 9.5px var(--f-data); padding: 3px 7px; border-radius: 20px; letter-spacing: 0.04em; }
+.tg.P { background: rgba(92, 242, 100, 0.18); color: #9dffa8; }
+.tg.C { background: rgba(255, 170, 70, 0.18); color: #ffc98a; }
+.tg.A { background: rgba(255, 93, 108, 0.22); color: #ffb0b8; }
+
+/* inspector */
+#inspect {
+  position: absolute; right: var(--gx2); top: 86px; width: 270px; z-index: 15; padding: 14px; display: none;
+  max-height: calc(100% - 170px); overflow-y: auto;
+}
+#inspect.show { display: block; animation: rise 0.25s ease-out; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.i-head { display: flex; align-items: center; gap: 10px; }
+.i-head .em { font-size: 34px; }
+.i-head h3 { margin: 0; font: 500 16px var(--f-display); }
+.role { display: inline-block; margin-top: 3px; font: 600 10.5px var(--f-data); padding: 2px 9px; border-radius: 20px; letter-spacing: 0.05em; }
+.role.p { background: rgba(92, 242, 100, 0.18); color: #9dffa8; }
+.role.c1 { background: rgba(255, 170, 70, 0.2); color: #ffc98a; }
+.role.c2 { background: rgba(255, 93, 108, 0.2); color: #ffb0b8; }
+.role.c3 { background: rgba(190, 120, 255, 0.22); color: #dcb6ff; }
+.role.x { background: rgba(255, 255, 255, 0.1); color: var(--mute); }
+.i-close { margin-left: auto; align-self: flex-start; border: 0; background: rgba(255, 255, 255, 0.08); color: var(--text); width: 28px; height: 28px; border-radius: 9px; cursor: pointer; }
+.i-close:hover { background: rgba(255, 255, 255, 0.18); }
+.popctl { display: flex; align-items: center; gap: 6px; margin: 12px 0 8px; background: rgba(0, 0, 0, 0.25); border-radius: 12px; padding: 5px; }
+.popctl button { width: 36px; height: 34px; border: 0; border-radius: 9px; cursor: pointer; font: 700 16px var(--f-data); color: #fff; }
+.popctl .minus { background: rgba(255, 93, 108, 0.7); } .popctl .minus:hover { background: var(--alert); }
+.popctl .plus { background: rgba(92, 242, 192, 0.75); color: #06241c; } .popctl .plus:hover { background: var(--mint); }
+.popctl input { flex: 1; min-width: 0; text-align: center; background: transparent; border: 0; color: var(--text); font: 700 20px var(--f-data); outline: none; -moz-appearance: textfield; }
+.popctl input::-webkit-outer-spin-button, .popctl input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.bar { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.1); overflow: hidden; margin-bottom: 12px; }
+.bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--mint), var(--sun)); border-radius: 6px; transition: width 0.5s cubic-bezier(.2, .8, .2, 1); }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stat { background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 8px 10px; }
+.stat span { display: block; font-size: 10.5px; color: var(--mute); }
+.stat b { font: 700 15px var(--f-data); font-variant-numeric: tabular-nums; }
+.stat.e b { color: var(--sky); } .stat.h b { color: #ff9b5c; } .stat.m b { color: #a8e86c; } .stat.t b { color: var(--alert); }
+.i-del { margin-top: 12px; width: 100%; border: 1px solid rgba(255, 93, 108, 0.45); background: rgba(255, 93, 108, 0.1); color: #ffb0b8; padding: 9px; border-radius: 11px; cursor: pointer; }
+.i-del:hover { background: rgba(255, 93, 108, 0.25); }
+
+/* bottom bar */
+#bottom {
+  position: absolute; left: calc(var(--gx) + 244px); right: var(--gx2); bottom: 12px; z-index: 15;
+  display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; padding: 10px 16px;
+}
+#status { display: flex; align-items: center; gap: 10px; font-size: 13px; min-width: 0; }
+#status .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--mute); box-shadow: 0 0 12px currentColor; flex: none; }
+#year { font: 700 15px var(--f-data); color: var(--mint); letter-spacing: 0.05em; white-space: nowrap; }
+.zoomhint { color: var(--mute); font-size: 11.5px; }
+
+/* toast + hint */
+#toast {
+  position: absolute; top: 92px; left: 50%; transform: translate(-50%, -20px); opacity: 0; z-index: 40; pointer-events: none;
+  padding: 10px 18px; border-radius: 30px; background: var(--glass-hi); border: 1px solid var(--line); font-size: 13px; transition: all 0.3s; max-width: 90%;
+}
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+#empty {
+  position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); z-index: 12; text-align: center; pointer-events: none;
+  padding: 18px 26px; max-width: min(420px, 80%);
+}
+#empty h2 { margin: 0 0 6px; font: 500 20px var(--f-display); }
+#empty p { margin: 0; color: var(--mute); line-height: 1.6; }
+
+/* modals */
+.modal { position: absolute; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; background: rgba(3, 10, 14, 0.7); backdrop-filter: blur(6px); padding: 16px var(--gx2) 16px var(--gx); }
+.modal.show { display: flex; }
+.sheet { width: min(940px, 100%); max-height: 100%; overflow-y: auto; padding: 22px; background: var(--glass-hi); position: relative; animation: rise 0.25s ease-out; }
+.sheet h2 { margin: 0 0 14px; font: 500 20px var(--f-display); padding-right: 40px; }
+.sheet .x { position: absolute; top: 14px; right: 14px; border: 0; background: rgba(255, 255, 255, 0.1); color: var(--text); width: 34px; height: 34px; border-radius: 10px; cursor: pointer; font-size: 16px; }
+.sheet .x:hover { background: rgba(255, 255, 255, 0.2); }
+#graph-wrap { height: min(420px, 55vh); }
+.pyr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.pyr { background: rgba(0, 0, 0, 0.22); border-radius: 14px; padding: 14px; }
+.pyr h3 { margin: 0 0 12px; font: 500 14px var(--f-display); }
+.tier { display: flex; justify-content: center; margin: 6px 0; perspective: 600px; }
+.tier .blk { height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font: 600 11px var(--f-data); color: #06241c; min-width: 54px; transform: rotateX(18deg); transform-origin: bottom; box-shadow: 0 8px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4); transition: width 0.5s cubic-bezier(.2, .8, .2, 1); white-space: nowrap; }
+.tier-lab { text-align: center; font-size: 11px; color: var(--mute); margin-top: -2px; }
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; color: var(--mute); font: 600 11px var(--f-data); letter-spacing: 0.08em; text-transform: uppercase; padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 9px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rep-meta { display: flex; flex-wrap: wrap; gap: 8px 20px; color: var(--mute); margin-bottom: 14px; }
+.rep-meta b { color: var(--text); }
+.confirm-row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+
+@media (max-width: 900px) {
+  #dock { top: auto; bottom: 74px; width: auto; right: var(--gx2); height: 112px; }
+  #organism-list { flex-direction: row; overflow-x: auto; overflow-y: hidden; padding-top: 0; }
+  .org { width: 150px; flex: none; }
+  #dock header { padding: 8px 14px 4px; }
+  #bottom { left: var(--gx); bottom: 10px; padding: 8px 14px; }
+  #inspect { top: auto; bottom: 200px; right: var(--gx2); left: var(--gx); width: auto; max-height: 38%; }
+  .zoomhint { display: none; }
+  #top { top: 6px; }
+  .brand small { display: none; }
+  .toolbar { width: 100%; }
+  .biomes { max-width: 100%; overflow-x: auto; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div id="stage"></div>
+
+<div id="top">
+  <div class="brand glass">
+    <div class="mark">🌱</div>
+    <div><h1>Eco<b>Connect</b> 3D</h1><small>โดย ครูภควัต สองเมือง · ชีววิทยาเพิ่มเติม ม.6</small></div>
+  </div>
+  <div class="toolbar glass">
+    <div class="biomes" id="biomes"></div>
+    <button class="tbtn alien" id="btn-alien" title="แสดงหรือซ่อนสิ่งมีชีวิตต่างถิ่น">⚠️ โหมด Alien</button>
+    <button class="tbtn go" id="btn-sim">⏩ 1 ปี</button>
+    <button class="tbtn auto" id="btn-auto" title="จำลองต่อเนื่อง">▶ เล่นอัตโนมัติ</button>
+    <button class="tbtn" id="btn-layout" title="จัดเรียงตำแหน่งอัตโนมัติ">🧭 จัดเรียง</button>
+    <button class="tbtn" id="btn-graph">📈 กราฟ</button>
+    <button class="tbtn" id="btn-pyr">🔺 พีระมิด</button>
+    <button class="tbtn" id="btn-report">📄 รายงาน</button>
+    <button class="tbtn" id="btn-reset">🗑️ ล้าง</button>
+  </div>
+</div>
+
+<aside id="dock" class="glass">
+  <header>สิ่งมีชีวิต · แตะเพื่อวางลงฉาก</header>
+  <div id="organism-list"></div>
+</aside>
+
+<section id="inspect" class="glass"></section>
+
+<div id="empty" class="glass">
+  <h2>สร้างระบบนิเวศของคุณ</h2>
+  <p>แตะสิ่งมีชีวิตในรายการด้านซ้าย เพื่อวางลงในฉาก 3 มิติ แล้วลากเมาส์หมุนมุมมอง เลื่อนล้อเพื่อซูม</p>
+</div>
+
+<div id="bottom" class="glass">
+  <div id="status"><span class="dot"></span><span id="status-text">รอการวางสิ่งมีชีวิต</span></div>
+  <span class="zoomhint">ลากพื้นที่ว่าง = หมุนกล้อง · คลิกขวาลาก = เลื่อน · ลากสิ่งมีชีวิต = ย้ายตำแหน่ง</span>
+  <div id="year">ปีที่ 0</div>
+</div>
+
+<div id="toast"></div>
+
+<div id="modal-graph" class="modal"><div class="sheet glass">
+  <button class="x" data-close="modal-graph" aria-label="ปิด">✕</button>
+  <h2>📈 กราฟการเปลี่ยนแปลงประชากร</h2>
+  <div id="graph-wrap"><canvas id="popChart"></canvas></div>
+</div></div>
+
+<div id="modal-pyr" class="modal"><div class="sheet glass">
+  <button class="x" data-close="modal-pyr" aria-label="ปิด">✕</button>
+  <h2>🔺 พีระมิดนิเวศวิทยา ณ ปีที่ <span id="pyr-year">0</span></h2>
+  <div class="pyr-grid" id="pyr-area"></div>
+</div></div>
+
+<div id="modal-report" class="modal"><div class="sheet glass">
+  <button class="x" data-close="modal-report" aria-label="ปิด">✕</button>
+  <h2>📄 รายงานการเปลี่ยนแปลงของประชากรในระบบนิเวศ</h2>
+  <div id="report-body"></div>
+</div></div>
+
+<div id="modal-reset" class="modal"><div class="sheet glass" style="max-width:420px">
+  <h2>ล้างกระดานและรีเซ็ตเวลา?</h2>
+  <p style="color:var(--mute);margin:0">สิ่งมีชีวิตทั้งหมดและกราฟจะถูกลบ ย้อนกลับไม่ได้</p>
+  <div class="confirm-row">
+    <button class="tbtn" data-close="modal-reset">ยกเลิก</button>
+    <button class="tbtn" id="btn-reset-ok" style="background:var(--alert);border-color:transparent;font-weight:600">ล้างทั้งหมด</button>
+  </div>
+</div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const O = (id, icon, name, type, eats, biome, pop, maxPop, weight, bEnergy, bToxin, color, birthRate, deathRate, migRate) =>
+  ({ id, icon, name, type, eats, biome: [biome], pop, maxPop, weight, bEnergy, bToxin, color, birthRate, deathRate, migRate });
+
+const ORGANISMS = [
+  // ทะเลบัวแดง
+  O('red_lotus','🌸','บัวแดง','P',[],'red_lotus',1000,3000,0.5,20000,0.01,'#e91e63',0.3,0.1,0),
+  O('hydrilla','🌿','สาหร่ายหางกระรอก','P',[],'red_lotus',1000,4000,0.05,15000,0.02,'#4caf50',0.4,0.1,0),
+  O('apple_snail','🐌','หอยเชอรี่ (Alien)','A',['red_lotus','hydrilla'],'red_lotus',100,2000,0.05,0,0,'#d50000',1.2,0.05,0.1),
+  O('dragonfly_nymph','🦗','ตัวอ่อนแมลงปอ','C',['hydrilla'],'red_lotus',500,1500,0.005,0,0,'#795548',0.5,0.2,0.05),
+  O('minnow','🐟','ปลาซิว','C',['dragonfly_nymph','hydrilla'],'red_lotus',300,1000,0.02,0,0,'#03a9f4',0.6,0.3,0.1),
+  O('snakehead','🐠','ปลาช่อน','C',['minnow','dragonfly_nymph','apple_snail'],'red_lotus',20,100,0.8,0,0,'#607d8b',0.2,0.1,0.02),
+  O('swamphen','🦤','นกอีโก้ง','C',['red_lotus','apple_snail','minnow'],'red_lotus',10,50,1.2,0,0,'#9c27b0',0.15,0.1,0.2),
+  // ป่าดิบชื้น
+  O('yang_na','🌳','ต้นยางนา','P',[],'rainforest',500,1000,2000,50000,0.005,'#2e7d32',0.05,0.02,0),
+  O('wild_fig','🍒','ลูกไทร/ผลไม้ป่า','P',[],'rainforest',1000,3000,0.1,20000,0.01,'#8bc34a',0.4,0.2,0),
+  O('hornbill','🦜','นกเงือก','C',['wild_fig'],'rainforest',50,150,2.5,0,0,'#ff9800',0.1,0.05,0.1),
+  O('macaque','🐒','ลิงกัง','C',['wild_fig','hornbill'],'rainforest',100,300,8.0,0,0,'#8d6e63',0.2,0.1,0.05),
+  O('sambar','🦌','กวางป่า','C',['yang_na','wild_fig'],'rainforest',60,200,150,0,0,'#a1887f',0.15,0.08,0.05),
+  O('tiger','🐅','เสือโคร่ง','C',['sambar','macaque'],'rainforest',5,20,180,0,0,'#ff5722',0.08,0.05,0.02),
+  O('feral_pig','🐗','หมูป่า (Alien)','A',['wild_fig','yang_na'],'rainforest',20,500,80,0,0,'#d50000',0.8,0.1,0.1),
+  // ทะเล
+  O('phytoplankton','🦠','แพลงก์ตอนพืช','P',[],'marine',1000,5000,0.0001,30000,0.02,'#00bcd4',0.9,0.4,0.1),
+  O('seagrass','🌱','หญ้าทะเล','P',[],'marine',1000,3000,0.2,25000,0.01,'#4caf50',0.3,0.1,0),
+  O('zooplankton','🦐','แพลงก์ตอนสัตว์','C',['phytoplankton'],'marine',800,4000,0.0005,0,0,'#ffb74d',0.6,0.3,0.1),
+  O('sea_turtle','🐢','เต่าตนุ','C',['seagrass'],'marine',15,50,100,0,0,'#388e3c',0.05,0.02,0.05),
+  O('sardine','🐟','ปลาซาร์ดีน','C',['zooplankton','phytoplankton'],'marine',400,2000,0.1,0,0,'#1976d2',0.5,0.2,0.2),
+  O('grouper','🐡','ปลาเก๋า','C',['sardine'],'marine',50,200,15,0,0,'#5d4037',0.15,0.1,0.05),
+  O('shark','🦈','ฉลามครีบดำ','C',['grouper','sea_turtle'],'marine',5,20,80,0,0,'#455a64',0.05,0.05,0.1),
+  O('lionfish','🐠','ปลาสิงโต (Alien)','A',['sardine','zooplankton'],'marine',10,500,1.0,0,0,'#d50000',1.0,0.05,0.2),
+  // ทะเลทราย
+  O('cactus','🌵','กระบองเพชร','P',[],'desert',800,2000,5.0,20000,0.01,'#689f38',0.1,0.05,0),
+  O('desert_shrub','🌿','พุ่มไม้หนาม','P',[],'desert',900,2500,2.0,15000,0.02,'#afb42b',0.15,0.1,0),
+  O('desert_beetle','🪲','แมลงปีกแข็งทะเลทราย','C',['desert_shrub'],'desert',600,2000,0.005,0,0,'#3e2723',0.4,0.2,0.05),
+  O('kangaroo_rat','🐁','หนูจิงโจ้','C',['cactus','desert_shrub','desert_beetle'],'desert',200,800,0.15,0,0,'#bcaaa4',0.3,0.15,0.05),
+  O('rattlesnake','🐍','งูหางกระดิ่ง','C',['kangaroo_rat'],'desert',40,150,1.5,0,0,'#fbc02d',0.1,0.05,0.05),
+  O('desert_hawk','🦅','เหยี่ยวทะเลทราย','C',['rattlesnake','kangaroo_rat'],'desert',10,50,2.0,0,0,'#795548',0.05,0.05,0.1),
+  O('feral_cat','🐈','แมวจรจัด (Alien)','A',['kangaroo_rat','desert_hawk'],'desert',5,100,4.0,0,0,'#d50000',0.6,0.1,0.1),
+  // ทุ่งหญ้าสะวันน่า
+  O('elephant_grass','🌾','หญ้าช้าง','P',[],'savanna',1000,5000,0.05,40000,0.01,'#cddc39',0.5,0.2,0),
+  O('acacia','🌳','ต้นอาเคเซีย','P',[],'savanna',600,1500,1000,45000,0.02,'#2e7d32',0.1,0.05,0),
+  O('zebra','🦓','ม้าลาย','C',['elephant_grass'],'savanna',200,800,300,0,0,'#9e9e9e',0.15,0.1,0.1),
+  O('giraffe','🦒','ยีราฟ','C',['acacia'],'savanna',50,200,800,0,0,'#ffb300',0.1,0.05,0.05),
+  O('lion','🦁','สิงโต','C',['zebra','giraffe'],'savanna',10,40,190,0,0,'#f57f17',0.1,0.05,0.05),
+  O('hyena','🐆','ไฮยีน่า','C',['zebra'],'savanna',20,80,50,0,0,'#5d4037',0.2,0.1,0.05),
+  O('red_fire_ant','🐜','มดคันไฟ (Alien)','A',['elephant_grass','zebra'],'savanna',500,5000,0.0001,0,0,'#d50000',1.5,0.1,0.2),
+];
+
+let activeNodes = [];
+let currentYear = 0;
+
+// ธีมฉาก 3 มิติของแต่ละระบบนิเวศ
+const BIOMES = {
+  red_lotus:  { label: '🌸 ทะเลบัวแดง', sky: [0x2a1b4d, 0xff9ab8], fog: 0x3a2457, ground: 0x2f6b4a, water: 0xff7eb6, waterOp: 0.55, waterY: 0.2, sun: 0xffc2d9, particle: 0xffe0f0, pKind: 'float' },
+  rainforest: { label: '🌳 ป่าดิบชื้น',  sky: [0x06241a, 0x4fae7a], fog: 0x0e3a2a, ground: 0x1d5c34, water: 0x2aa17a, waterOp: 0.0,  waterY: 0,   sun: 0xcfffd6, particle: 0xd6ff8a, pKind: 'firefly' },
+  marine:     { label: '🌊 ทะเล',         sky: [0x021a33, 0x1a8fc4], fog: 0x053a63, ground: 0xc7b27a, water: 0x1ec8e6, waterOp: 0.42, waterY: 1.6, sun: 0xaee9ff, particle: 0xd8f6ff, pKind: 'bubble' },
+  desert:     { label: '🏜️ ทะเลทราย',    sky: [0x3a1f12, 0xffb36b], fog: 0x6a3f22, ground: 0xd9a35c, water: 0x000000, waterOp: 0.0,  waterY: 0,   sun: 0xffd8a0, particle: 0xffe2b0, pKind: 'dust' },
+  savanna:    { label: '🦁 ทุ่งหญ้าสะวันน่า', sky: [0x2e1a3a, 0xffcf6b], fog: 0x6b4a2a, ground: 0x9a9a3c, water: 0x000000, waterOp: 0.0, waterY: 0,   sun: 0xffe3a0, particle: 0xfff0c0, pKind: 'dust' },
+};
+/* ===================== 3D SCENE ===================== */
+const stageEl = document.getElementById('stage');
+let renderer, scene, camera, controls;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+} catch (err) {
+  stageEl.innerHTML = '<div style="padding:120px 24px;text-align:center;color:#e9f6f2">อุปกรณ์นี้ไม่รองรับ WebGL จึงแสดงฉาก 3 มิติไม่ได้</div>';
+  throw err;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+stageEl.appendChild(renderer.domElement);
+
+scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x0e3a2a, 30, 80);
+camera = new THREE.PerspectiveCamera(46, 1, 0.1, 400);
+camera.position.set(0, 12, 20);
+controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.07;
+controls.maxPolarAngle = Math.PI * 0.49; controls.minDistance = 6; controls.maxDistance = 44;
+controls.target.set(0, 2.2, 0);
+controls.autoRotate = true; controls.autoRotateSpeed = 0.5;
+controls.addEventListener('start', () => { controls.autoRotate = false; });
+
+function resize() {
+  const w = stageEl.clientWidth || 800, h = stageEl.clientHeight || 600;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(stageEl); resize();
+
+/* sky dome */
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: { top: { value: new THREE.Color() }, bot: { value: new THREE.Color() } },
+  vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader: 'uniform vec3 top; uniform vec3 bot; varying vec3 vP; void main(){ float h = clamp(vP.y*1.5+0.2,0.0,1.0); gl_FragColor = vec4(mix(bot, top, pow(h,0.75)),1.0); }'
+});
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(200, 32, 16), skyMat));
+
+(function stars() {
+  const n = 260, p = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, e = Math.random() * 1.1 + 0.15, r = 190;
+    p[i * 3] = Math.cos(a) * Math.cos(e) * r; p[i * 3 + 1] = Math.sin(e) * r; p[i * 3 + 2] = Math.sin(a) * Math.cos(e) * r;
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 1.3, sizeAttenuation: false, transparent: true, opacity: 0.55, fog: false, depthWrite: false })));
+})();
+
+/* lights */
+const hemi = new THREE.HemisphereLight(0xffffff, 0x223344, 0.85); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffffff, 1.15);
+sun.position.set(11, 20, 9); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
+Object.assign(sun.shadow.camera, { left: -18, right: 18, top: 18, bottom: -18, near: 1, far: 60 });
+sun.shadow.bias = -0.0005; scene.add(sun);
+
+/* floating island */
+const topMat = new THREE.MeshStandardMaterial({ color: 0x2f6b4a, roughness: 0.92 });
+const rockMat = new THREE.MeshStandardMaterial({ color: 0x1c2a30, roughness: 1, flatShading: true });
+const islandTop = new THREE.Mesh(new THREE.CylinderGeometry(15, 14.2, 1.2, 80), topMat);
+islandTop.position.y = -0.6; islandTop.receiveShadow = true; scene.add(islandTop);
+const islandRock = new THREE.Mesh(new THREE.ConeGeometry(14.2, 10, 9), rockMat);
+islandRock.rotation.x = Math.PI; islandRock.position.y = -6.2; scene.add(islandRock);
+const rimGlow = new THREE.Mesh(new THREE.TorusGeometry(14.7, 0.07, 8, 140), new THREE.MeshBasicMaterial({ color: 0x5cf2c0 }));
+rimGlow.rotation.x = Math.PI / 2; rimGlow.position.y = 0.02; scene.add(rimGlow);
+[3.4, 6.2, 8.6, 11].forEach((r, i) => {
+  const ring = new THREE.Mesh(new THREE.RingGeometry(r - 0.035, r + 0.035, 120), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.1 - i * 0.012, side: THREE.DoubleSide, depthWrite: false }));
+  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.025; scene.add(ring);
+});
+
+/* water */
+const waterGeo = new THREE.RingGeometry(0.01, 14.8, 72, 26);
+const waterBase = waterGeo.attributes.position.array.slice();
+const waterMat = new THREE.MeshStandardMaterial({ color: 0x1ec8e6, transparent: true, opacity: 0, roughness: 0.12, metalness: 0.15, side: THREE.DoubleSide, depthWrite: false });
+const water = new THREE.Mesh(waterGeo, waterMat); water.rotation.x = -Math.PI / 2; water.receiveShadow = true; scene.add(water);
+
+/* scenery */
+const props = new THREE.Group(); scene.add(props);
+function disposeGroup(g) {
+  g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => m.dispose()); });
+  while (g.children.length) g.remove(g.children[0]);
+}
+function mkRng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+function buildProps(key) {
+  disposeGroup(props);
+  const r = mkRng(key.length * 977 + 13);
+  const std = (c, o) => new THREE.MeshStandardMaterial(Object.assign({ color: c, roughness: 0.8, flatShading: true }, o || {}));
+  const put = (m, x, y, z) => { m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; props.add(m); return m; };
+  const scatter = (n, a, b, fn) => { for (let i = 0; i < n; i++) { const ang = r() * Math.PI * 2, d = a + r() * (b - a); fn(Math.cos(ang) * d, Math.sin(ang) * d, r(), i); } };
+
+  if (key === 'red_lotus') {
+    const pad = std(0x2e8a4a, { flatShading: false }), pink = std(0xff7eb6, { emissive: 0xff3a86, emissiveIntensity: 0.25 }), stem = std(0x2c7a3d);
+    const padGeo = new THREE.CylinderGeometry(0.9, 0.9, 0.06, 22);
+    scatter(34, 3, 14.2, (x, z, k) => { const m = put(new THREE.Mesh(padGeo, pad), x, 0.24, z); m.scale.setScalar(0.6 + k * 0.9); });
+    scatter(14, 9.5, 14, (x, z, k) => {
+      const fl = new THREE.Group(); const s = 0.8 + k * 0.7;
+      for (let i = 0; i < 8; i++) { const p = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.7, 6), pink); const a = i / 8 * Math.PI * 2; p.position.set(Math.cos(a) * 0.22, 0.45, Math.sin(a) * 0.22); p.rotation.set(Math.sin(a) * 0.7, 0, -Math.cos(a) * 0.7); fl.add(p); }
+      const st = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 1.1, 6), stem); st.position.y = -0.1; fl.add(st);
+      fl.scale.setScalar(s); put(fl, x, 0.3, z);
+    });
+  } else if (key === 'rainforest') {
+    const trunk = std(0x5b3d26), c1 = std(0x1f6b34), c2 = std(0x2f8f45);
+    scatter(38, 10, 14.3, (x, z, k) => {
+      const t = new THREE.Group(), h = 2 + k * 2.6;
+      const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.3, h, 7), trunk); tr.position.y = h / 2; t.add(tr);
+      const a = new THREE.Mesh(new THREE.IcosahedronGeometry(1.1 + k * 0.6, 0), c1); a.position.y = h + 0.3; t.add(a);
+      const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.8 + k * 0.4, 0), c2); b.position.set(0.5, h + 1.1, 0.2); t.add(b);
+      t.traverse(o => { o.castShadow = true; }); put(t, x, 0, z);
+    });
+    const fern = std(0x3fae5a); scatter(30, 3, 14, (x, z, k) => put(new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.9, 5), fern), x, 0.4, z).scale.setScalar(0.6 + k));
+  } else if (key === 'marine') {
+    const cols = [0xff6b9d, 0xffb347, 0xc77dff, 0x5ce1e6, 0xff8a5c];
+    scatter(34, 7, 14.2, (x, z, k, i) => {
+      const m = std(cols[i % cols.length], { emissive: cols[i % cols.length], emissiveIntensity: 0.18 });
+      const geo = i % 3 === 0 ? new THREE.ConeGeometry(0.4, 1.4, 6) : (i % 3 === 1 ? new THREE.DodecahedronGeometry(0.6) : new THREE.CylinderGeometry(0.1, 0.25, 1.6, 6));
+      const mesh = put(new THREE.Mesh(geo, m), x, 0.5, z); mesh.scale.set(1, 0.7 + k * 1.2, 1);
+    });
+    const rock = std(0x6f7a84); scatter(14, 4, 14, (x, z, k) => put(new THREE.Mesh(new THREE.DodecahedronGeometry(0.5 + k * 0.7), rock), x, 0.2, z));
+  } else if (key === 'desert') {
+    const sand = [std(0xe3b26a, { flatShading: false }), std(0xcf9a52, { flatShading: false })], cac = std(0x4f8a3a);
+    scatter(12, 7, 15, (x, z, k, i) => { const m = put(new THREE.Mesh(new THREE.SphereGeometry(1, 28, 16), sand[i % 2]), x, -0.2, z); m.scale.set(2 + k * 2.4, 0.6 + k * 0.9, 1.6 + k * 1.6); });
+    scatter(16, 6, 14, (x, z, k) => {
+      const c = new THREE.Group(), h = 1.2 + k * 1.6;
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, h, 8), cac); body.position.y = h / 2; c.add(body);
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.7, 8), cac); arm.position.set(0.34, h * 0.6, 0); c.add(arm);
+      c.traverse(o => { o.castShadow = true; }); put(c, x, 0, z);
+    });
+  } else {
+    const trunk = std(0x5a3d22), crown = std(0x3f7a2c, { flatShading: false }), grass = std(0xd7c04a);
+    scatter(14, 9, 14.3, (x, z, k) => {
+      const t = new THREE.Group(), h = 2.2 + k * 1.8;
+      const tr = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.22, h, 7), trunk); tr.position.y = h / 2; t.add(tr);
+      const cr = new THREE.Mesh(new THREE.SphereGeometry(1.7, 20, 10), crown); cr.scale.set(1, 0.32, 1); cr.position.y = h + 0.1; t.add(cr);
+      t.traverse(o => { o.castShadow = true; }); put(t, x, 0, z);
+    });
+    scatter(70, 2, 14.2, (x, z, k) => put(new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.7 + k * 0.5, 4), grass), x, 0.3, z));
+  }
+  props.scale.set(1, 0.001, 1); propsGrow = 0;
+}
+let propsGrow = 1;
+
+/* ambient particles */
+function softTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+  const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(255,255,255,0.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c);
+}
+const SOFT = softTexture();
+const PN = 340, pPos = new Float32Array(PN * 3), pSeed = new Float32Array(PN);
+for (let i = 0; i < PN; i++) { pPos[i * 3] = (Math.random() - 0.5) * 32; pPos[i * 3 + 1] = Math.random() * 14; pPos[i * 3 + 2] = (Math.random() - 0.5) * 32; pSeed[i] = Math.random(); }
+const pGeo = new THREE.BufferGeometry(); pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+const pMat = new THREE.PointsMaterial({ size: 0.28, map: SOFT, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.85 });
+scene.add(new THREE.Points(pGeo, pMat));
+let pKind = 'float';
+function updateParticles(t, dt) {
+  const a = pGeo.attributes.position.array;
+  for (let i = 0; i < PN; i++) {
+    const s = pSeed[i], j = i * 3;
+    if (pKind === 'bubble') { a[j + 1] += dt * (0.5 + s * 0.8); a[j] += Math.sin(t + s * 9) * dt * 0.25; }
+    else if (pKind === 'dust') { a[j] += dt * (0.7 + s * 1.2); a[j + 1] += Math.sin(t * 0.7 + s * 12) * dt * 0.2; a[j + 2] += dt * 0.25; }
+    else if (pKind === 'firefly') { a[j] += Math.sin(t * 0.8 + s * 20) * dt * 0.9; a[j + 1] += Math.cos(t * 0.6 + s * 14) * dt * 0.6; a[j + 2] += Math.sin(t * 0.5 + s * 7) * dt * 0.9; }
+    else { a[j] += Math.sin(t * 0.3 + s * 11) * dt * 0.5; a[j + 1] += Math.cos(t * 0.4 + s * 5) * dt * 0.35 - dt * 0.12; a[j + 2] += Math.cos(t * 0.25 + s * 3) * dt * 0.5; }
+    if (a[j + 1] > 14) a[j + 1] = 0; if (a[j + 1] < 0) a[j + 1] = 14;
+    if (a[j] > 16) a[j] = -16; if (a[j] < -16) a[j] = 16; if (a[j + 2] > 16) a[j + 2] = -16; if (a[j + 2] < -16) a[j + 2] = 16;
+  }
+  pGeo.attributes.position.needsUpdate = true;
+  pMat.size = pKind === 'firefly' ? 0.3 + Math.sin(t * 3) * 0.08 : 0.26;
+}
+
+/* biome theme blending */
+const cur = { top: new THREE.Color(), bot: new THREE.Color(), fog: new THREE.Color(), ground: new THREE.Color(), water: new THREE.Color(), sun: new THREE.Color(), part: new THREE.Color(), wOp: 0, wY: 0 };
+let tgt = null, firstBiome = true;
+function setBiome(key) {
+  const b = BIOMES[key];
+  tgt = { top: new THREE.Color(b.sky[0]), bot: new THREE.Color(b.sky[1]), fog: new THREE.Color(b.fog), ground: new THREE.Color(b.ground), water: new THREE.Color(b.water), sun: new THREE.Color(b.sun), part: new THREE.Color(b.particle), wOp: b.waterOp, wY: b.waterY };
+  pKind = b.pKind;
+  buildProps(key);
+  if (firstBiome) { firstBiome = false; ['top', 'bot', 'fog', 'ground', 'water', 'sun', 'part'].forEach(k => cur[k].copy(tgt[k])); cur.wOp = tgt.wOp; cur.wY = tgt.wY; }
+}
+function updateTheme(dt) {
+  if (!tgt) return;
+  const k = 1 - Math.pow(0.02, dt);
+  ['top', 'bot', 'fog', 'ground', 'water', 'sun', 'part'].forEach(n => cur[n].lerp(tgt[n], k));
+  cur.wOp += (tgt.wOp - cur.wOp) * k; cur.wY += (tgt.wY - cur.wY) * k;
+  skyMat.uniforms.top.value.copy(cur.top); skyMat.uniforms.bot.value.copy(cur.bot);
+  scene.fog.color.copy(cur.fog); renderer.setClearColor(cur.fog);
+  topMat.color.copy(cur.ground); rockMat.color.copy(cur.ground).multiplyScalar(0.28);
+  waterMat.color.copy(cur.water); waterMat.opacity = cur.wOp; water.visible = cur.wOp > 0.01; water.position.y = cur.wY;
+  sun.color.copy(cur.sun); hemi.color.copy(cur.bot).lerp(new THREE.Color(0xffffff), 0.45); hemi.groundColor.copy(cur.fog);
+  pMat.color.copy(cur.part);
+  if (propsGrow < 1) { propsGrow = Math.min(1, propsGrow + dt * 1.4); const e = 1 - Math.pow(1 - propsGrow, 3); props.scale.y = Math.max(0.001, e); }
+}
+function updateWater(t) {
+  if (!water.visible) return;
+  const a = waterGeo.attributes.position.array;
+  for (let i = 0; i < a.length; i += 3) { const x = waterBase[i], y = waterBase[i + 1]; a[i + 2] = Math.sin(x * 0.55 + t * 1.3) * 0.12 + Math.cos(y * 0.6 + t * 1.0) * 0.1; }
+  waterGeo.attributes.position.needsUpdate = true; waterGeo.computeVertexNormals();
+}
+
+/* ===================== ORGANISM VIEWS ===================== */
+const TIER_COL = { P: 0x5cf264, C: 0xffaa46, A: 0xff5d6c };
+const pickables = [];
+const emojiCache = {};
+function emojiTexture(e) {
+  if (emojiCache[e]) return emojiCache[e];
+  const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d');
+  x.font = '176px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(e, 128, 140);
+  const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return (emojiCache[e] = t);
+}
+function rrect(x, a, b, w, h, r) { x.beginPath(); x.moveTo(a + r, b); x.arcTo(a + w, b, a + w, b + h, r); x.arcTo(a + w, b + h, a, b + h, r); x.arcTo(a, b + h, a, b, r); x.arcTo(a, b, a + w, b, r); x.closePath(); }
+function drawLabel(v, n) {
+  const x = v.lctx; x.clearRect(0, 0, 512, 128);
+  const dead = n.pop === 0;
+  x.fillStyle = 'rgba(7,20,27,0.78)'; rrect(x, 6, 6, 500, 116, 30); x.fill();
+  x.strokeStyle = dead ? 'rgba(255,255,255,0.18)' : 'rgba(92,242,192,0.55)'; x.lineWidth = 3; x.stroke();
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillStyle = dead ? '#8fb2b6' : '#e9f6f2'; x.font = '600 38px Prompt, sans-serif';
+  let name = n.name; while (x.measureText(name).width > 460 && name.length > 3) name = name.slice(0, -2) + '…';
+  x.fillText(name, 256, 44);
+  x.fillStyle = dead ? '#ff9aa4' : '#5cf2c0'; x.font = '700 34px "Chakra Petch", Prompt, sans-serif';
+  x.fillText(dead ? 'สูญพันธุ์' : n.pop.toLocaleString(), 256, 92);
+  v.ltex.needsUpdate = true; v.lastPop = n.pop;
+}
+function createNodeView(n) {
+  const col = new THREE.Color(n.color), g = new THREE.Group(), v = { g, n };
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.3, 0.16, 44), new THREE.MeshStandardMaterial({ color: 0x14303a, roughness: 0.35, metalness: 0.55, emissive: col, emissiveIntensity: 0.28 }));
+  base.position.y = -1.0; base.castShadow = true; base.userData.nodeId = n.id; g.add(base);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.05, 8, 64), new THREE.MeshBasicMaterial({ color: TIER_COL[n.type] }));
+  rim.rotation.x = Math.PI / 2; rim.position.y = -0.9; g.add(rim);
+  const track = new THREE.Mesh(new THREE.RingGeometry(1.42, 1.5, 64), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false }));
+  track.rotation.x = -Math.PI / 2; track.position.y = -0.92; g.add(track);
+  v.gaugeMat = new THREE.MeshBasicMaterial({ color: 0x5cf2c0, side: THREE.DoubleSide });
+  v.gauge = new THREE.Mesh(new THREE.RingGeometry(1.42, 1.5, 64, 1, 0, 0.01), v.gaugeMat);
+  v.gauge.rotation.x = -Math.PI / 2; v.gauge.position.y = -0.91; g.add(v.gauge); v.gaugeFrac = -1;
+
+  const orbG = new THREE.Group(); g.add(orbG); v.orbG = orbG;
+  v.orbMat = new THREE.MeshPhysicalMaterial({ color: col, emissive: col, emissiveIntensity: 0.38, transparent: true, opacity: 0.3, roughness: 0.08, clearcoat: 1, depthWrite: false });
+  const orb = new THREE.Mesh(new THREE.SphereGeometry(0.98, 36, 24), v.orbMat); orb.renderOrder = 2; orb.userData.nodeId = n.id; orbG.add(orb);
+  v.sprMat = new THREE.SpriteMaterial({ map: emojiTexture(n.icon), transparent: true, depthWrite: false });
+  const spr = new THREE.Sprite(v.sprMat); spr.scale.set(1.55, 1.55, 1); spr.renderOrder = 3; orbG.add(spr);
+  if (n.type === 'A') {
+    v.aura = new THREE.Mesh(new THREE.SphereGeometry(1.3, 24, 16), new THREE.MeshBasicMaterial({ color: 0xff2d48, transparent: true, opacity: 0.16, side: THREE.BackSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+    orbG.add(v.aura);
+  }
+  const lc = document.createElement('canvas'); lc.width = 512; lc.height = 128; v.lctx = lc.getContext('2d'); v.ltex = new THREE.CanvasTexture(lc); v.ltex.anisotropy = 4;
+  v.label = new THREE.Sprite(new THREE.SpriteMaterial({ map: v.ltex, transparent: true, depthWrite: false })); v.label.scale.set(3.1, 0.775, 1); v.label.renderOrder = 4; g.add(v.label);
+  v.sel = new THREE.Mesh(new THREE.RingGeometry(1.7, 1.82, 64), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false }));
+  v.sel.rotation.x = -Math.PI / 2; v.sel.position.y = -0.88; v.sel.visible = false; g.add(v.sel);
+
+  v.pickables = [base, orb]; v.pickables.forEach(m => pickables.push(m));
+  v.phase = Math.random() * 6.28; v.spawn = 0; v.dying = false; v.lastPop = -1; v.curScale = 0.3;
+  v.target = { x: n.x, y: 1.4, z: n.z }; g.position.set(n.x, 1.4, n.z); g.scale.setScalar(0.001);
+  v.lc = lc; drawLabel(v, n); scene.add(g);
+  n.view = v; return v;
+}
+function removeNodeView(n, instant) {
+  const v = n.view; if (!v) return;
+  v.pickables.forEach(m => { const i = pickables.indexOf(m); if (i >= 0) pickables.splice(i, 1); });
+  if (instant) { disposeNodeView(v); } else { v.dying = true; }
+}
+function disposeNodeView(v) {
+  scene.remove(v.g);
+  v.g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+  v.ltex.dispose();
+}
+function updateNodeViews(t, dt) {
+  const gone = [];
+  activeNodes.concat(dyingNodes).forEach(n => {
+    const v = n.view; if (!v) return;
+    const g = v.g, k = Math.min(1, dt * 3.2);
+    g.position.x += (v.target.x - g.position.x) * k;
+    g.position.z += (v.target.z - g.position.z) * k;
+    const bob = Math.sin(t * 1.3 + v.phase) * 0.16;
+    g.position.y += (v.target.y + bob - g.position.y) * Math.min(1, dt * 5);
+    if (v.dying) { v.spawn = Math.max(0, v.spawn - dt * 3); } else { v.spawn = Math.min(1, v.spawn + dt * 1.5); }
+    const e = v.dying ? v.spawn : (1 + 2.70158 * Math.pow(v.spawn - 1, 3) + 1.70158 * Math.pow(v.spawn - 1, 2));
+    g.scale.setScalar(Math.max(0.001, e));
+    if (v.dying && v.spawn <= 0) { gone.push(n); return; }
+    const ratio = Math.min(1, n.pop / n.maxPop), dead = n.pop === 0;
+    const ts = dead ? 0.55 : 0.6 + 0.75 * Math.sqrt(ratio);
+    v.curScale += (ts - v.curScale) * Math.min(1, dt * 4);
+    v.orbG.scale.setScalar(v.curScale);
+    v.orbG.position.y = 0.05 + (v.curScale - 0.6) * 0.25;
+    v.orbG.rotation.y = t * 0.4 + v.phase;
+    v.orbMat.opacity = dead ? 0.1 : 0.3; v.orbMat.emissiveIntensity = dead ? 0.02 : 0.32 + Math.sin(t * 2 + v.phase) * 0.08;
+    v.sprMat.opacity = dead ? 0.22 : 1;
+    if (v.aura) { const s = 1 + Math.sin(t * 3.2 + v.phase) * 0.1; v.aura.scale.setScalar(s); v.aura.visible = !dead; }
+    if (v.lastPop !== n.pop) drawLabel(v, n);
+    v.label.position.y = 0.05 + v.curScale * 1.15 + 0.55;
+    const f = Math.round(ratio * 100) / 100;
+    if (f !== v.gaugeFrac) { v.gaugeFrac = f; v.gauge.geometry.dispose(); v.gauge.geometry = new THREE.RingGeometry(1.42, 1.5, 64, 1, 0, Math.max(0.01, f * Math.PI * 2)); v.gaugeMat.color.set(f > 0.85 ? 0xffd166 : 0x5cf2c0); }
+    if (v.sel.visible) { const p = 1 + Math.sin(t * 4) * 0.05; v.sel.scale.set(p, p, p); }
+  });
+  gone.forEach(n => { disposeNodeView(n.view); n.view = null; const i = dyingNodes.indexOf(n); if (i >= 0) dyingNodes.splice(i, 1); });
+}
+const dyingNodes = [];
+
+/* ===================== FOOD LINKS ===================== */
+const linkGroup = new THREE.Group(); scene.add(linkGroup);
+let links = [], linkSig = '';
+const LN = 26, FN = 7;
+function rebuildLinks() {
+  const pairs = [];
+  activeNodes.forEach(pred => activeNodes.forEach(prey => {
+    if (pred !== prey && pred.eats.includes(prey.refId) && prey.pop > 0 && pred.pop > 0) pairs.push([prey, pred]);
+  }));
+  const sig = pairs.map(p => p[0].id + '>' + p[1].id).join('|');
+  if (sig === linkSig) return; linkSig = sig;
+  disposeGroup(linkGroup); links = [];
+  pairs.forEach(([a, b]) => {
+    const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(LN * 3), 3));
+    const col = b.type === 'A' ? 0xff7a88 : 0xffe27a;
+    const line = new THREE.Line(lg, new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.5 }));
+    const fg = new THREE.BufferGeometry(); fg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(FN * 3), 3));
+    const flow = new THREE.Points(fg, new THREE.PointsMaterial({ color: col, size: 0.42, map: SOFT, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.17, 0.42, 10), new THREE.MeshBasicMaterial({ color: col }));
+    line.frustumCulled = flow.frustumCulled = false;
+    linkGroup.add(line, flow, arrow); links.push({ a, b, line, flow, arrow });
+  });
+}
+const _A = new THREE.Vector3(), _B = new THREE.Vector3(), _C = new THREE.Vector3(), _T = new THREE.Vector3(), _Y = new THREE.Vector3(0, 1, 0);
+function bez(u, A, C, B, out) { const w = 1 - u; return out.set(w * w * A.x + 2 * w * u * C.x + u * u * B.x, w * w * A.y + 2 * w * u * C.y + u * u * B.y, w * w * A.z + 2 * w * u * C.z + u * u * B.z); }
+function updateLinks(t) {
+  links.forEach(L => {
+    if (!L.a.view || !L.b.view) return;
+    _A.copy(L.a.view.g.position); _B.copy(L.b.view.g.position);
+    _C.copy(_A).add(_B).multiplyScalar(0.5); _C.y += 1.4 + _A.distanceTo(_B) * 0.14;
+    const lp = L.line.geometry.attributes.position.array;
+    for (let i = 0; i < LN; i++) { bez(0.14 + (i / (LN - 1)) * 0.72, _A, _C, _B, _T); lp[i * 3] = _T.x; lp[i * 3 + 1] = _T.y; lp[i * 3 + 2] = _T.z; }
+    L.line.geometry.attributes.position.needsUpdate = true;
+    const fp = L.flow.geometry.attributes.position.array;
+    for (let i = 0; i < FN; i++) { const u = 0.14 + (((t * 0.32 + i / FN) % 1)) * 0.72; bez(u, _A, _C, _B, _T); fp[i * 3] = _T.x; fp[i * 3 + 1] = _T.y; fp[i * 3 + 2] = _T.z; }
+    L.flow.geometry.attributes.position.needsUpdate = true;
+    bez(0.87, _A, _C, _B, _T); L.arrow.position.copy(_T);
+    const u = 0.87, tx = 2 * (1 - u) * (_C.x - _A.x) + 2 * u * (_B.x - _C.x), ty = 2 * (1 - u) * (_C.y - _A.y) + 2 * u * (_B.y - _C.y), tz = 2 * (1 - u) * (_C.z - _A.z) + 2 * u * (_B.z - _C.z);
+    _T.set(tx, ty, tz).normalize(); L.arrow.quaternion.setFromUnitVectors(_Y, _T);
+  });
+}
+
+/* ===================== LAYOUT (trophic rings) ===================== */
+const RING_R = { 0: 8.2, 1: 7.2, 2: 4.9, 3: 3.0, 4: 1.3 };
+function layoutNodes() {
+  const byLvl = {};
+  activeNodes.forEach(n => { const L = Math.min(4, n.level || 0); (byLvl[L] = byLvl[L] || []).push(n); });
+  Object.keys(byLvl).forEach(L => {
+    const arr = byLvl[L], cnt = arr.length;
+    let R = RING_R[L]; if (cnt > 1) R = Math.min(9.2, Math.max(R, cnt * 1.45 / (Math.PI * 2)));
+    const lvl = Number(L), y = lvl === 0 ? 1.3 : 1.35 + (lvl - 1) * 1.05;
+    arr.forEach((n, i) => {
+      if (!n.manual) { const a = (i / cnt) * Math.PI * 2 + lvl * 0.85 + (cnt === 1 ? 0.6 : 0); n.x = Math.cos(a) * (cnt === 1 && lvl === 4 ? 0 : R); n.z = Math.sin(a) * (cnt === 1 && lvl === 4 ? 0 : R); }
+      if (n.view) { n.view.target.x = n.x; n.view.target.z = n.z; n.view.target.y = y; }
+    });
+  });
+}
+
+/* ===================== PICK + DRAG ===================== */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), dom = renderer.domElement;
+let onSelectNode = () => {};
+function setRay(e) { const r = dom.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); }
+function pickId(e) { setRay(e); const h = ray.intersectObjects(pickables, false); return h.length ? h[0].object.userData.nodeId : null; }
+let drag = null, down = null;
+dom.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  const id = pickId(e); down = { x: e.clientX, y: e.clientY, id, moved: false };
+  if (!id) return;
+  const n = activeNodes.find(q => q.id === id); if (!n || !n.view) return;
+  e.stopImmediatePropagation(); controls.enabled = false; controls.autoRotate = false;
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -n.view.g.position.y), p = new THREE.Vector3();
+  ray.ray.intersectPlane(plane, p);
+  drag = { n, plane, ox: n.view.g.position.x - p.x, oz: n.view.g.position.z - p.z };
+  try { dom.setPointerCapture(e.pointerId); } catch (_) { }
+}, true);
+dom.addEventListener('pointermove', e => {
+  if (down && !down.moved && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) down.moved = true;
+  if (drag) {
+    setRay(e); const p = new THREE.Vector3();
+    if (ray.ray.intersectPlane(drag.plane, p)) {
+      let x = p.x + drag.ox, z = p.z + drag.oz; const d = Math.hypot(x, z); if (d > 12.8) { x *= 12.8 / d; z *= 12.8 / d; }
+      drag.n.x = x; drag.n.z = z; drag.n.manual = true; drag.n.view.target.x = x; drag.n.view.target.z = z;
+    }
+  } else if (e.pointerType === 'mouse' && !down) { dom.style.cursor = pickId(e) ? 'grab' : 'default'; }
+});
+function endPointer(e) {
+  if (drag) { try { dom.releasePointerCapture(e.pointerId); } catch (_) { } controls.enabled = true; if (down && !down.moved) onSelectNode(drag.n.id); drag = null; }
+  else if (down && !down.moved && !down.id) onSelectNode(null);
+  down = null;
+}
+dom.addEventListener('pointerup', endPointer); dom.addEventListener('pointercancel', endPointer);
+
+/* ===================== RENDER LOOP ===================== */
+const clock = new THREE.Clock();
+function frame() {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, clock.getDelta()), t = clock.elapsedTime;
+  updateTheme(dt); updateWater(t); updateParticles(t, dt);
+  updateNodeViews(t, dt); updateLinks(t);
+  rimGlow.material.color.setHSL(0.45 + Math.sin(t * 0.4) * 0.03, 0.9, 0.62);
+  controls.update(); renderer.render(scene, camera);
+}
+frame();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => activeNodes.forEach(n => n.view && drawLabel(n.view, n)));
+/* ===================== APP LOGIC ===================== */
+const $ = id => document.getElementById(id);
+let showAlien = false, currentBiome = 'red_lotus', selectedId = null, autoTimer = null, uid = 0, chartInstance = null, repChart = null;
+
+/* sound */
+let audioCtx = null, userActed = false;
+window.addEventListener('pointerdown', () => { userActed = true; }, { capture: true });
+function playSound(type) {
+  if (!userActed) return;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    audioCtx = audioCtx || new AC(); if (audioCtx.state === 'suspended') audioCtx.resume();
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain(), t = audioCtx.currentTime;
+    o.connect(g); g.connect(audioCtx.destination);
+    if (type === 'alien') { o.type = 'sawtooth'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(50, t + 0.5); g.gain.setValueAtTime(0.25, t); g.gain.linearRampToValueAtTime(0.01, t + 0.5); o.start(); o.stop(t + 0.5); }
+    else if (type === 'tick') { o.type = 'triangle'; o.frequency.setValueAtTime(330, t); o.frequency.exponentialRampToValueAtTime(660, t + 0.12); g.gain.setValueAtTime(0.15, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.14); o.start(); o.stop(t + 0.14); }
+    else { o.type = 'sine'; o.frequency.setValueAtTime(440, t); o.frequency.exponentialRampToValueAtTime(880, t + 0.1); g.gain.setValueAtTime(0.22, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.12); o.start(); o.stop(t + 0.12); }
+  } catch (_) { }
+}
+let toastT = null;
+function toast(msg) { const el = $('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 2600); }
+const fmt = (v, d = 0) => Number(v).toLocaleString(undefined, { maximumFractionDigits: d });
+
+/* biome + species dock */
+function buildBiomeButtons() {
+  const box = $('biomes'); box.innerHTML = '';
+  Object.keys(BIOMES).forEach(k => {
+    const b = document.createElement('button'); b.className = 'biome-btn' + (k === currentBiome ? ' on' : ''); b.textContent = BIOMES[k].label; b.dataset.k = k;
+    b.onclick = () => { filterBiome(k); toast('เปลี่ยนฉากเป็น ' + BIOMES[k].label); };
+    box.appendChild(b);
+  });
+}
+function filterBiome(biome) {
+  currentBiome = biome; setBiome(biome);
+  document.querySelectorAll('.biome-btn').forEach(b => b.classList.toggle('on', b.dataset.k === biome));
+  const list = $('organism-list'); list.innerHTML = '';
+  let items = ORGANISMS.filter(o => o.biome.includes(biome)); if (!showAlien) items = items.filter(o => o.type !== 'A');
+  items.forEach(org => {
+    const b = document.createElement('button'); b.className = 'org';
+    const tn = org.type === 'P' ? 'ผู้ผลิต' : (org.type === 'A' ? 'Alien' : 'ผู้บริโภค');
+    b.innerHTML = `<span class="em">${org.icon}</span><span class="nm">${org.name}</span><span class="tg ${org.type}">${tn}</span>`;
+    b.onclick = () => addNode(org, true);
+    list.appendChild(b);
+  });
+}
+
+/* nodes */
+function addNode(org, select) {
+  playSound(org.type === 'A' ? 'alien' : 'drop');
+  const a = Math.random() * Math.PI * 2;
+  const n = {
+    id: 'n' + (++uid), refId: org.id, name: org.name, icon: org.icon, type: org.type, eats: org.eats, color: org.color,
+    birthRate: org.birthRate, deathRate: org.deathRate, migRate: org.migRate, pop: org.pop, basePop: org.pop, maxPop: org.maxPop,
+    weight: org.weight, bEnergy: org.bEnergy, bToxin: org.bToxin, energy: 0, heat: 0, toxin: 0, biomass: 0, level: 0,
+    x: Math.cos(a) * 8, z: Math.sin(a) * 8, manual: false, history: Array(currentYear).fill(0)
+  };
+  n.history.push(n.pop); activeNodes.push(n); createNodeView(n);
+  if (org.type === 'A') toast('⚠️ ' + org.name + ' เข้ามารุกรานระบบนิเวศ');
+  recalculateEcosystem();
+  if (select) selectNode(n.id);
+}
+function deleteNode(id) {
+  const i = activeNodes.findIndex(n => n.id === id); if (i < 0) return;
+  const n = activeNodes[i]; activeNodes.splice(i, 1); removeNodeView(n, false); if (n.view) dyingNodes.push(n);
+  if (selectedId === id) selectNode(null);
+  recalculateEcosystem();
+}
+function setNodePop(id, val) {
+  const node = activeNodes.find(n => n.id === id); if (!node) return;
+  const np = Math.max(0, parseInt(val) || 0); if (np === node.pop) return;
+  const old = node.pop; node.pop = np;
+  let frac = 0; if (old > 0) frac = (np - old) / old; else if (np > 0) frac = 1;
+  applyRippleEffect(id, frac);
+  activeNodes.forEach(n => n.history[currentYear] = n.pop);
+  recalculateEcosystem();
+}
+function adjustNodePop(id, pct) {
+  const node = activeNodes.find(n => n.id === id); if (!node) return;
+  let d = Math.round(node.pop * (pct / 100)); if (d === 0 && pct > 0) d = 1;
+  setNodePop(id, Math.max(0, node.pop + d)); playSound('tick');
+}
+function applyRippleEffect(srcId, frac) {
+  if (frac === 0) return;
+  const src = activeNodes.find(n => n.id === srcId);
+  activeNodes.forEach(o => {
+    if (o.id === srcId) return;
+    if (o.eats.includes(src.refId)) o.pop = Math.max(0, o.pop + Math.round(o.pop * frac * 0.5));
+    if (src.eats.includes(o.refId)) o.pop = Math.max(0, o.pop + Math.round(o.pop * -frac * 0.5));
+  });
+}
+
+/* ecosystem calculation (same model as the original) */
+function recalculateEcosystem() {
+  let edges = 0, isWeb = false; const adj = {}, radj = {};
+  activeNodes.forEach(n => {
+    adj[n.id] = []; radj[n.id] = [];
+    n.energy = 0; n.heat = 0; n.toxin = 0; n.level = 0; n.biomass = n.pop * n.weight;
+    if (n.type === 'P') { n.energy = n.bEnergy * (n.pop / 10); n.toxin = n.bToxin; n.level = 1; }
+  });
+  for (let step = 0; step < 5; step++) {
+    activeNodes.forEach(c => {
+      if (c.type === 'P') return;
+      let totalE = 0, maxTox = 0, maxLvl = 0, eats = false;
+      activeNodes.forEach(p => {
+        if (c.eats.includes(p.refId) && p.energy > 0 && p.pop > 0) {
+          eats = true;
+          if (!adj[p.id].includes(c.id)) { adj[p.id].push(c.id); radj[c.id].push(p.id); edges++; }
+          totalE += p.energy; if (p.toxin > maxTox) maxTox = p.toxin; if (p.level > maxLvl) maxLvl = p.level;
+        }
+      });
+      if (eats && c.pop > 0) { c.energy = totalE * 0.1; c.heat = totalE * 0.9; c.toxin = maxTox * 10; c.level = maxLvl + 1; }
+      else { c.energy = 0; c.heat = 0; c.level = 0; }
+    });
+  }
+  for (const k in adj) if (adj[k].length > 1) isWeb = true;
+  for (const k in radj) if (radj[k].length > 1) isWeb = true;
+  const st = $('status-text'), dot = document.querySelector('#status .dot');
+  let msg = 'รอการวางสิ่งมีชีวิต', c = '#8fb2b6';
+  if (activeNodes.length) {
+    if (edges === 0) { msg = 'สิ่งมีชีวิตยังไม่มีการกินกัน'; }
+    else if (isWeb) { msg = '🕸️ สายใยอาหาร (Food Web)'; c = '#c79bff'; }
+    else { msg = '🔗 ห่วงโซ่อาหาร (Food Chain)'; c = '#6cc8ff'; }
+  }
+  st.textContent = msg; dot.style.background = c; dot.style.color = c;
+  $('empty').style.display = activeNodes.length ? 'none' : 'block';
+  layoutNodes(); rebuildLinks(); refreshInspector();
+}
+
+/* inspector */
+function roleOf(n) {
+  if (n.pop === 0) return ['สูญพันธุ์', 'x'];
+  if (n.level === 1) return ['ผู้ผลิต (T1)', 'p'];
+  if (n.level === 0) return ['ขาดอาหาร', 'x'];
+  return ['ผู้บริโภค (T' + n.level + ')', n.level === 2 ? 'c1' : (n.level === 3 ? 'c2' : 'c3')];
+}
+function selectNode(id) {
+  activeNodes.forEach(n => { if (n.view) n.view.sel.visible = (n.id === id); });
+  selectedId = id; const el = $('inspect');
+  const n = activeNodes.find(q => q.id === id);
+  if (!n) { el.classList.remove('show'); el.innerHTML = ''; selectedId = null; return; }
+  el.innerHTML = `
+    <div class="i-head"><div class="em">${n.icon}</div><div><h3>${n.name}</h3><span class="role" id="i-role"></span></div><button class="i-close" id="i-close" aria-label="ปิด">✕</button></div>
+    <div style="font-size:11px;color:var(--mute);margin-top:12px">ประชากร · ปุ่ม − / + ปรับครั้งละ 10%</div>
+    <div class="popctl" style="margin-top:6px"><button class="minus" id="i-minus" aria-label="ลด">−</button><input id="i-pop" type="number" min="0" inputmode="numeric" aria-label="จำนวนประชากร"><button class="plus" id="i-plus" aria-label="เพิ่ม">+</button></div>
+    <div class="bar"><i id="i-bar"></i></div>
+    <div class="stats">
+      <div class="stat m"><span>Biomass</span><b id="i-mass"></b></div><div class="stat t"><span>สารพิษ</span><b id="i-tox"></b></div>
+      <div class="stat e"><span>พลังงาน</span><b id="i-eng"></b></div><div class="stat h"><span>สูญเสียเป็นความร้อน</span><b id="i-heat"></b></div>
+    </div>
+    <button class="i-del" id="i-del">ลบออกจากฉาก</button>`;
+  el.classList.add('show');
+  $('i-close').onclick = () => selectNode(null);
+  $('i-minus').onclick = () => adjustNodePop(id, -10);
+  $('i-plus').onclick = () => adjustNodePop(id, 10);
+  $('i-del').onclick = () => deleteNode(id);
+  $('i-pop').addEventListener('change', e => setNodePop(id, e.target.value));
+  $('i-pop').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+  refreshInspector();
+}
+function refreshInspector() {
+  const n = activeNodes.find(q => q.id === selectedId); if (!n || !$('i-pop')) return;
+  const [rt, rc] = roleOf(n); const r = $('i-role'); r.textContent = rt; r.className = 'role ' + rc;
+  const inp = $('i-pop'); if (document.activeElement !== inp) inp.value = n.pop;
+  $('i-bar').style.width = Math.min(100, n.pop / n.maxPop * 100) + '%';
+  $('i-mass').textContent = fmt(n.biomass, 1) + ' kg'; $('i-tox').textContent = fmt(n.toxin, 2);
+  $('i-eng').textContent = fmt(n.energy); $('i-heat').textContent = fmt(n.heat);
+}
+
+/* simulation */
+function simulateYear() {
+  if (!activeNodes.length) { toast('วางสิ่งมีชีวิตลงในฉากก่อน'); return; }
+  currentYear++; $('year').textContent = 'ปีที่ ' + currentYear;
+  activeNodes.forEach(n => {
+    const grow = 1 - n.pop / n.maxPop, births = n.pop * n.birthRate * Math.max(0, grow), deaths = n.pop * n.deathRate;
+    const mig = n.pop * n.migRate * (Math.random() > 0.5 ? 1 : -0.5);
+    n.tempPop = n.pop + births - deaths + mig;
+  });
+  activeNodes.forEach(pred => {
+    if (pred.type === 'P' || pred.tempPop <= 0) return;
+    let got = false, avail = 0;
+    activeNodes.forEach(prey => {
+      if (pred.eats.includes(prey.refId) && prey.tempPop > 0) {
+        avail += prey.tempPop; got = true;
+        const eff = pred.type === 'A' ? 0.35 : 0.15;
+        let eaten = Math.round(prey.tempPop * eff * (pred.tempPop / (prey.maxPop * 0.1)));
+        eaten = Math.max(0, Math.min(eaten, prey.tempPop * 0.95));
+        prey.tempPop -= eaten; pred.tempPop += eaten * (prey.weight / pred.weight) * 0.1;
+      }
+    });
+    if (!got || avail === 0) { pred.tempPop -= pred.tempPop * 0.60; if (pred.tempPop < 1) pred.tempPop = 0; }
+  });
+  activeNodes.forEach(n => { n.pop = Math.min(Math.max(0, Math.floor(n.tempPop)), n.maxPop); n.history.push(n.pop); });
+  recalculateEcosystem(); playSound('tick');
+  if ($('modal-graph').classList.contains('show')) updateChart();
+}
+function toggleAuto() {
+  const b = $('btn-auto');
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; b.classList.remove('on'); b.textContent = '▶ เล่นอัตโนมัติ'; }
+  else { if (!activeNodes.length) { toast('วางสิ่งมีชีวิตลงในฉากก่อน'); return; } b.classList.add('on'); b.textContent = '⏸ หยุด'; autoTimer = setInterval(simulateYear, 1500); simulateYear(); }
+}
+
+/* charts */
+Chart.defaults.color = '#8fb2b6'; Chart.defaults.font.family = "Prompt, sans-serif"; Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
+function chartConfig(animate) {
+  const labels = Array.from({ length: currentYear + 1 }, (_, i) => 'ปีที่ ' + i);
+  return {
+    type: 'line',
+    data: { labels, datasets: activeNodes.map(n => ({ label: n.icon + ' ' + n.name, data: n.history, borderColor: n.color, backgroundColor: n.color + '33', tension: 0.3, borderWidth: 2.5, pointRadius: currentYear > 30 ? 0 : 3 })) },
+    options: { animation: animate ? { duration: 400 } : false, responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      scales: { y: { beginAtZero: true, title: { display: true, text: 'จำนวนประชากร' } } }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, usePointStyle: true } } } }
+  };
+}
+function updateChart() { if (chartInstance) chartInstance.destroy(); chartInstance = new Chart($('popChart').getContext('2d'), chartConfig(true)); }
+function showModal(id) { $(id).classList.add('show'); }
+function closeModal(id) { $(id).classList.remove('show'); }
+function showGraph() { if (!activeNodes.length) return toast('วางสิ่งมีชีวิตลงในฉากก่อน'); showModal('modal-graph'); updateChart(); }
+
+/* pyramids */
+function levelData() {
+  const L = {};
+  activeNodes.forEach(n => { if (n.level > 0 && n.pop > 0) { const o = L[n.level] = L[n.level] || { pop: 0, mass: 0, energy: 0 }; o.pop += n.pop; o.mass += n.biomass; o.energy += n.energy; } });
+  return L;
+}
+const PYR_COL = { pop: ['#7bf59a', '#2fb86a'], mass: ['#ffc46b', '#f08a1c'], energy: ['#8fd6ff', '#2e8fe0'] };
+function pyramidHTML(title, L, keys, k) {
+  const max = Math.max(...Object.values(L).map(d => d[k])) || 1;
+  let h = `<div class="pyr"><h3>${title}</h3>`;
+  keys.forEach(lv => {
+    const v = L[lv][k], w = Math.max(14, v / max * 100), name = lv === 1 ? 'ผู้ผลิต' : 'ผู้บริโภค T' + lv;
+    h += `<div class="tier"><div class="blk" style="width:${w}%;background:linear-gradient(180deg,${PYR_COL[k][0]},${PYR_COL[k][1]})">${fmt(v)}</div></div><div class="tier-lab">${name}</div>`;
+  });
+  return h + '</div>';
+}
+function showPyramids() {
+  if (!activeNodes.length) return toast('วางสิ่งมีชีวิตลงในฉากก่อน');
+  $('pyr-year').textContent = currentYear;
+  const L = levelData(), keys = Object.keys(L).map(Number).sort((a, b) => b - a);
+  $('pyr-area').innerHTML = keys.length ? pyramidHTML('จำนวน (ตัว)', L, keys, 'pop') + pyramidHTML('มวลชีวภาพ (kg)', L, keys, 'mass') + pyramidHTML('พลังงาน (J)', L, keys, 'energy') : '<p>ระบบนิเวศล่มสลาย</p>';
+  showModal('modal-pyr');
+}
+
+/* report */
+function showReport() {
+  if (!activeNodes.length) return toast('วางสิ่งมีชีวิตลงในฉากก่อน');
+  const rows = [...activeNodes].sort((a, b) => a.level - b.level).map(n => {
+    const [rt] = roleOf(n);
+    return `<tr><td>${n.icon} ${n.name}</td><td>${rt}</td><td>${fmt(n.pop)}</td><td>${fmt(n.biomass, 1)}</td><td>${fmt(n.energy)}</td><td style="color:${n.toxin > 0 ? 'var(--alert)' : 'inherit'}">${fmt(n.toxin, 2)}</td></tr>`;
+  }).join('');
+  $('report-body').innerHTML = `
+    <div class="rep-meta"><span>ฉาก: <b>${BIOMES[currentBiome].label}</b></span><span>สถานะ: <b>${$('status-text').textContent}</b></span><span>ระยะเวลาจำลอง: <b>${currentYear} ปี</b></span></div>
+    <div class="tbl-wrap"><table><tr><th>สิ่งมีชีวิต</th><th>บทบาท</th><th>จำนวน</th><th>Biomass (kg)</th><th>พลังงาน (J)</th><th>สารพิษ (ppm)</th></tr>${rows}</table></div>
+    <h3 style="font:500 15px var(--f-display);margin:20px 0 10px">กราฟประชากรตามปี</h3>
+    <div style="height:300px"><canvas id="repChart"></canvas></div>
+    <div class="confirm-row"><button class="tbtn go" id="btn-copy">📋 คัดลอกสรุปเป็นข้อความ</button></div>
+    <p style="color:var(--mute);font-size:12px;margin:10px 0 0">พัฒนาสื่อโดย ครูภควัต สองเมือง · EcoConnect Interactive Simulator</p>`;
+  showModal('modal-report');
+  if (repChart) repChart.destroy(); repChart = new Chart($('repChart').getContext('2d'), chartConfig(false));
+  $('btn-copy').onclick = async () => {
+    const txt = 'รายงานระบบนิเวศ ' + BIOMES[currentBiome].label + ' ปีที่ ' + currentYear + '\n' + activeNodes.map(n => `${n.name}: ${fmt(n.pop)} (${roleOf(n)[0]})`).join('\n');
+    try { await navigator.clipboard.writeText(txt); toast('คัดลอกแล้ว'); } catch (_) { toast('คัดลอกอัตโนมัติไม่ได้ ลองเลือกข้อความในตารางแล้วคัดลอกเอง'); }
+  };
+}
+
+/* reset */
+function doReset() {
+  if (autoTimer) toggleAuto();
+  activeNodes.forEach(n => removeNodeView(n, true)); dyingNodes.forEach(n => n.view && disposeNodeView(n.view)); dyingNodes.length = 0;
+  activeNodes.length = 0; currentYear = 0; selectNode(null);
+  $('year').textContent = 'ปีที่ 0'; if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+  linkSig = '#'; recalculateEcosystem(); closeModal('modal-reset'); toast('ล้างกระดานแล้ว');
+}
+
+/* wiring */
+$('btn-alien').onclick = () => { showAlien = !showAlien; $('btn-alien').classList.toggle('on', showAlien); filterBiome(currentBiome); toast(showAlien ? '⚠️ แสดงสิ่งมีชีวิตต่างถิ่น (Alien)' : 'ซ่อนสิ่งมีชีวิตต่างถิ่น'); };
+$('btn-sim').onclick = simulateYear; $('btn-auto').onclick = toggleAuto;
+$('btn-graph').onclick = showGraph; $('btn-pyr').onclick = showPyramids; $('btn-report').onclick = showReport;
+$('btn-layout').onclick = () => { activeNodes.forEach(n => n.manual = false); layoutNodes(); toast('จัดเรียงตามระดับโภชนาการแล้ว'); };
+$('btn-reset').onclick = () => showModal('modal-reset'); $('btn-reset-ok').onclick = doReset;
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => closeModal(b.dataset.close));
+document.querySelectorAll('.modal').forEach(m => m.addEventListener('pointerdown', e => { if (e.target === m) m.classList.remove('show'); }));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { document.querySelectorAll('.modal.show').forEach(m => m.classList.remove('show')); selectNode(null); } });
+onSelectNode = id => selectNode(id);
+
+/* start with a small example chain so the scene is alive */
+buildBiomeButtons(); filterBiome('red_lotus');
+['red_lotus', 'hydrilla', 'dragonfly_nymph', 'minnow', 'snakehead'].forEach((rid, i) => {
+  setTimeout(() => { const o = ORGANISMS.find(q => q.id === rid); if (o) addNode(o, false); if (i === 4) toast('ตัวอย่างเริ่มต้น ลบหรือเพิ่มสิ่งมีชีวิตได้เลย'); }, 250 + i * 260);
+});
+</script>
+
+</body></html>
